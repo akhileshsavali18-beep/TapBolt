@@ -16,5 +16,4 @@
 <text x="310" y="575" font-size="128" fill="url(#olt)" stroke="#8f2500" stroke-width="13" paint-order="stroke">B</text>
 <text x="440" y="575" font-size="128" fill="url(#olt)" stroke="#8f2500" stroke-width="13" paint-order="stroke">OLT</text>
 </g>
-<path d="M315 470l-38 75 34-2-19 48 55-72-32 2z" fill="url(#bolt)" stroke="#ff8a00" stroke-width="5" stroke-linejoin="round"/>
 </svg>
