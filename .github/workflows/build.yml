@@ -16,10 +16,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Generate Gradle wrapper
         working-directory: android
         run: gradle wrapper --gradle-version 8.9
