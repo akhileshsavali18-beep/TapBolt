@@ -1,18 +1,67 @@
 package com.tapbolt.app;
+
 import android.app.Activity;
-import android.os.Bundle;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.view.View;
-public class MainActivity extends Activity{
- public void onCreate(Bundle b){
-  super.onCreate(b);
-  WebView w=new WebView(this);
-  WebSettings s=w.getSettings();
-  s.setJavaScriptEnabled(true);
-  s.setDomStorageEnabled(true);
-  w.setOverScrollMode(View.OVER_SCROLL_NEVER);
-  w.loadUrl("file:///android_asset/index.html");
-  setContentView(w);
- }
+import android.os.*;
+import android.content.*;
+import android.graphics.*;
+import android.view.*;
+import android.media.*;
+import java.util.*;
+
+public class MainActivity extends Activity {
+  BoltView v;
+  public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.rgb(2,7,18));getWindow().setNavigationBarColor(Color.rgb(2,7,18));v=new BoltView(this);setContentView(v);}
+  public void onBackPressed(){if(v.back())return;super.onBackPressed();}
+
+  static class BoltView extends View {
+    Paint p=new Paint(1),s=new Paint(1); SharedPreferences sp; Random rnd=new Random(); ToneGenerator tone; Vibrator vib;
+    String page="home",mode="rush",skin="bolt",theme="neon"; int coins,best,games,bestCombo,score,combo,hits,misses,earned,seconds; long end,targetEnd; float tx,ty; boolean target,paused,sound=true,vibration=true;
+    String[] ids={"rush","blitz","endurance","precision"},names={"Rush","Blitz","Endurance","Precision"},desc={"30 seconds • Tap as fast as possible","15 seconds • Faster targets • 2× score","60 seconds • Build a huge score","20 targets • Every tap counts"};
+    String[] skins={"bolt","cyan","fire","gold","void"},skinNames={"Classic Bolt","Cyber Cyan","Fire Core","Golden Bolt","Void Pulse"};int[] prices={0,100,250,500,800};
+
+    BoltView(Context c){super(c);sp=c.getSharedPreferences("tapbolt",0);coins=sp.getInt("coins",250);best=sp.getInt("best",0);games=sp.getInt("games",0);bestCombo=sp.getInt("combo",0);skin=sp.getString("skin","bolt");theme=sp.getString("theme","neon");sound=sp.getBoolean("sound",true);vibration=sp.getBoolean("vibration",true);vib=(Vibrator)c.getSystemService(Context.VIBRATOR_SERVICE);try{tone=new ToneGenerator(AudioManager.STREAM_MUSIC,65);}catch(Exception e){}}
+    void save(){sp.edit().putInt("coins",coins).putInt("best",best).putInt("games",games).putInt("combo",bestCombo).putString("skin",skin).putString("theme",theme).putBoolean("sound",sound).putBoolean("vibration",vibration).apply();}
+    void bg(Canvas c){int a=Color.rgb(2,7,18),b=theme.equals("ocean")?Color.rgb(2,35,55):theme.equals("sunset")?Color.rgb(58,18,8):Color.rgb(3,25,50);c.drawColor(a);p.setShader(new LinearGradient(0,0,0,getHeight(),a,b,Shader.TileMode.CLAMP));c.drawRect(0,0,getWidth(),getHeight(),p);p.setShader(null);}
+    void t(Canvas c,String x,float X,float Y,float z,int col,boolean bold){p.setShader(null);p.setStyle(Paint.Style.FILL);p.setColor(col);p.setTextSize(z);p.setTypeface(Typeface.create("sans",bold?1:0));c.drawText(x,X,Y,p);}
+    void ct(Canvas c,String x,float Y,float z,int col,boolean bold){p.setTextSize(z);p.setTypeface(Typeface.create("sans",bold?1:0));t(c,x,(getWidth()-p.measureText(x))/2,Y,z,col,bold);}
+    void box(Canvas c,float l,float y,float r,float b,int col){p.setStyle(Paint.Style.FILL);p.setColor(col);c.drawRoundRect(l,y,r,b,16,16,p);}
+    void outline(Canvas c,float l,float y,float r,float b,int col){s.setStyle(Paint.Style.STROKE);s.setStrokeWidth(2);s.setColor(col);c.drawRoundRect(l,y,r,b,16,16,s);}
+    void btn(Canvas c,String x,float l,float y,float r,float b,boolean primary){box(c,l,y,r,b,primary?Color.rgb(255,145,8):Color.rgb(6,29,56));outline(c,l,y,r,b,primary?Color.rgb(255,220,65):Color.rgb(9,100,165));p.setTextSize(14);p.setTypeface(Typeface.DEFAULT_BOLD);ctIn(c,x,l,y,r,b,primary?Color.rgb(40,20,0):Color.WHITE,14,true);}
+    void ctIn(Canvas c,String x,float l,float y,float r,float b,int col,float z,boolean bold){p.setTextSize(z);p.setTypeface(Typeface.create("sans",bold?1:0));t(c,x,(l+r-p.measureText(x))/2,(y+b)/2+z*.35f,z,col,bold);}
+    void head(Canvas c,String x){t(c,"‹",18,40,35,Color.WHITE,false);t(c,x,60,34,20,Color.WHITE,true);box(c,getWidth()-105,12,getWidth()-15,48,Color.rgb(5,26,50));ctIn(c,"🪙 "+coins,getWidth()-105,12,getWidth()-15,48,Color.rgb(255,215,35),11,true);}
+    void logo(Canvas c,float cx,float cy){p.setColor(Color.rgb(255,180,20));p.setShadowLayer(25,0,0,Color.rgb(0,170,255));Path q=new Path();q.moveTo(cx,cy-48);q.lineTo(cx-23,cy+5);q.lineTo(cx-3,cy+3);q.lineTo(cx-15,cy+47);q.lineTo(cx+28,cy-8);q.lineTo(cx+7,cy-6);q.close();c.drawPath(q,p);p.clearShadowLayer();ct(c,"TAPBOLT",cy+82,27,Color.WHITE,true);ct(c,"Tap Fast. Score More.",cy+106,11,Color.rgb(175,200,230),false);}
+    void nav(Canvas c,int active){float y=getHeight()-76;box(c,0,y,getWidth(),getHeight(),Color.rgb(2,10,22));String[] a={"🎮","🛒","👤","👑"},b={"Modes","Shop","Profile","Premium"};for(int i=0;i<4;i++){float x=getWidth()/4f*i+getWidth()/8f;ct(c,a[i],y+27,19,i==active?Color.WHITE:Color.rgb(125,150,185),false);ct(c,b[i],y+49,9,i==active?Color.WHITE:Color.rgb(125,150,185),i==active);}}
+    protected void onDraw(Canvas c){bg(c);if(page.equals("home"))home(c);else if(page.equals("modes"))modes(c);else if(page.equals("game")){tick();game(c);}else if(page.equals("result"))result(c);else if(page.equals("shop"))shop(c);else if(page.equals("profile"))profile(c);else settings(c);if(page.equals("game"))postInvalidateDelayed(50);}
+    void home(Canvas c){box(c,14,14,getWidth()-14,68,Color.rgb(5,23,45));t(c,"👦",28,49,26,Color.WHITE,false);t(c,"Player123",68,39,15,Color.WHITE,true);t(c,"⭐ Lv. "+(1+coins/500)+"  •  🔥 "+sp.getInt("streak",1)+" day streak",68,57,10,Color.rgb(255,213,42),false);box(c,getWidth()-112,22,getWidth()-22,57,Color.rgb(7,28,52));ctIn(c,"🪙 "+coins,getWidth()-112,22,getWidth()-22,57,Color.rgb(255,215,42),11,true);ct(c,"READY FOR THE CHALLENGE?",106,13,Color.rgb(145,175,215),true);logo(c,getWidth()/2,172);btn(c,"▶  PLAY NOW",24,285,getWidth()-24,347,true);ct(c,"Fast arcade action • Offline play",367,9,Color.rgb(105,130,165),false);box(c,18,394,getWidth()-18,458,Color.rgb(20,7,40));outline(c,18,394,getWidth()-18,458,Color.rgb(125,40,190));t(c,"🎯",31,435,25,Color.WHITE,false);t(c,"Daily Challenge",70,420,14,Color.WHITE,true);t(c,daily(),70,441,10,Color.rgb(175,190,215),false);t(c,"›",getWidth()-38,435,28,Color.rgb(20,217,255),false);box(c,18,472,getWidth()-18,530,Color.rgb(6,23,45));outline(c,18,472,getWidth()-18,530,Color.rgb(122,92,20));t(c,"🏆",31,508,24,Color.WHITE,false);t(c,"Leaderboard",70,497,14,Color.WHITE,true);t(c,"Your local best: "+best,70,516,10,Color.rgb(175,190,215),false);nav(c,-1);}
+    String daily(){String[] d={"Rush Master • Score 2,000","Blitz Storm • Get 20 taps","Perfect Precision • 20 targets","Endurance Run • Score 1,500"};return d[Calendar.getInstance().get(Calendar.DAY_OF_YEAR)%4];}
+    void modes(Canvas c){head(c,"Game Modes");ct(c,"Choose Your Mode",94,24,Color.WHITE,true);ct(c,"Challenge yourself and beat your score.",118,11,Color.rgb(145,165,195),false);for(int i=0;i<4;i++){float y=140+i*88;box(c,16,y,getWidth()-16,y+75,Color.rgb(5,25,48));outline(c,16,y,getWidth()-16,y+75,mode.equals(ids[i])?Color.rgb(0,200,255):Color.rgb(8,83,140));t(c,new String[]{"⚡","🔥","💪","🎯"}[i],32,y+48,29,Color.WHITE,false);t(c,names[i],82,y+30,16,Color.WHITE,true);t(c,desc[i],82,y+52,10,Color.rgb(165,185,210),false);t(c,"›",getWidth()-42,y+47,28,Color.rgb(20,217,255),false);}nav(c,0);}
+    void start(){score=combo=hits=misses=earned=0;seconds=mode.equals("rush")?30:mode.equals("blitz")?15:mode.equals("endurance")?60:20;paused=false;target=false;end=System.currentTimeMillis()+seconds*1000L;postDelayed(()->spawn(),400);}
+    void spawn(){if(!page.equals("game")||paused)return;if(mode.equals("precision")&&hits>=20){finish();return;}tx=48+rnd.nextFloat()*(getWidth()-96);ty=125+rnd.nextFloat()*(getHeight()-235);target=true;targetEnd=System.currentTimeMillis()+(mode.equals("blitz")?850:1200);}
+    void tick(){if(paused)return;long n=System.currentTimeMillis();if(!mode.equals("precision")&&n>=end){finish();return;}if(target&&n>=targetEnd){target=false;misses++;combo=0;postDelayed(()->spawn(),60);}}
+    void game(Canvas c){t(c,"‹ Exit",18,39,15,Color.WHITE,true);ct(c,names[index()],35,16,Color.WHITE,true);t(c,"Ⅱ",getWidth()-65,39,20,Color.WHITE,true);t(c,"🏆 "+score,getWidth()-145,39,13,Color.WHITE,true);box(c,16,55,getWidth()-16,getHeight()-18,Color.rgb(2,12,27));outline(c,16,55,getWidth()-16,getHeight()-18,Color.rgb(7,88,150));t(c,"⏱ "+(mode.equals("precision")?hits+"/20":Math.max(0,(int)((end-System.currentTimeMillis())/1000))),30,84,12,Color.rgb(170,195,225),true);t(c,"🔥 "+combo,170,84,12,Color.rgb(255,215,30),true);t(c,"🪙 "+earned,275,84,12,Color.rgb(255,215,30),true);if(paused){box(c,16,55,getWidth()-16,getHeight()-18,Color.argb(240,2,7,18));ct(c,"PAUSED",getHeight()/2-15,34,Color.WHITE,true);btn(c,"▶ RESUME",getWidth()/2-120,getHeight()/2+20,getWidth()/2+120,getHeight()/2+75,true);return;}if(target)drawTarget(c);else ct(c,"GET READY",getHeight()/2,20,Color.rgb(170,210,245),true);}
+    int index(){for(int i=0;i<4;i++)if(mode.equals(ids[i]))return i;return 0;}
+    void drawTarget(Canvas c){int a=Color.rgb(10,145,235),b=Color.rgb(10,220,255);if(skin.equals("fire")){a=Color.rgb(255,70,18);b=Color.rgb(255,210,65);}if(skin.equals("gold")){a=Color.rgb(205,135,18);b=Color.rgb(255,235,100);}if(skin.equals("void")){a=Color.rgb(130,55,230);b=Color.rgb(215,185,255);}p.setShadowLayer(30,0,0,b);p.setColor(a);c.drawCircle(tx,ty,33,p);p.clearShadowLayer();p.setColor(b);c.drawCircle(tx,ty,18,p);p.setColor(Color.WHITE);c.drawCircle(tx,ty,6,p);}
+    void tap(){if(!target)return;target=false;hits++;combo++;bestCombo=Math.max(bestCombo,combo);int m=mode.equals("blitz")?2:1;score+=10+Math.min(combo,20)*2*m;earned+=1+combo/10;beep();buzz(12);if(mode.equals("precision")&&hits>=20)finish();else postDelayed(()->spawn(),70);}
+    void finish(){if(!page.equals("game"))return;target=false;games++;boolean nb=score>best;if(nb)best=score;coins+=earned;save();beep();buzz(70);page="result";}
+    void result(Canvas c){ct(c,score>=best?"🏆":"⚡",120,58,Color.WHITE,false);ct(c,score>=best?"NEW BEST!":"GAME OVER",177,28,Color.WHITE,true);box(c,22,205,getWidth()-22,290,Color.rgb(20,8,50));outline(c,22,205,getWidth()-22,290,Color.rgb(120,45,190));ct(c,"SCORE",232,10,Color.rgb(255,215,42),true);ct(c,""+score,273,46,Color.WHITE,true);stat(c,"🔥 Best Combo",""+bestCombo,310);stat(c,"🎯 Accuracy",(hits+misses)==0?"100%":(hits*100/(hits+misses))+"%",360);stat(c,"🪙 Coins Earned","+"+earned,410);btn(c,"↻  PLAY AGAIN",24,470,getWidth()-24,526,true);btn(c,"⌂  HOME",24,538,getWidth()-24,586,false);}
+    void stat(Canvas c,String a,String b,float y){box(c,22,y,getWidth()-22,y+40,Color.rgb(6,23,45));t(c,a,36,y+26,12,Color.rgb(170,190,215),false);t(c,b,getWidth()-90,y+26,14,Color.rgb(255,215,42),true);}
+    void shop(Canvas c){head(c,"Shop");t(c,"Customize TapBolt",18,86,21,Color.WHITE,true);t(c,"Skins • Themes • Power-Ups",18,106,10,Color.rgb(150,175,205),false);for(int i=0;i<5;i++){float y=125+i*76;box(c,16,y,getWidth()-16,y+64,Color.rgb(5,24,47));outline(c,16,y,getWidth()-16,y+64,skin.equals(skins[i])?Color.rgb(0,210,255):Color.rgb(7,80,135));t(c,new String[]{"⚡","🔷","🔥","✨","🟣"}[i],30,y+42,27,Color.WHITE,false);t(c,skinNames[i],70,y+26,13,Color.WHITE,true);boolean owned=i==0||sp.getBoolean("skin"+i,false);t(c,owned?(skin.equals(skins[i])?"EQUIPPED":"EQUIP"):"🪙 "+prices[i],70,y+47,10,owned?Color.rgb(20,217,255):Color.rgb(255,215,42),true);}nav(c,1);}
+    void buy(int i){if(i==0){skin="bolt";save();return;}if(sp.getBoolean("skin"+i,false)){skin=skins[i];save();return;}if(coins>=prices[i]){coins-=prices[i];sp.edit().putBoolean("skin"+i,true).apply();skin=skins[i];save();beep();buzz(25);}}
+    void profile(Canvas c){head(c,"Profile");box(c,16,76,getWidth()-16,180,Color.rgb(6,23,45));t(c,"👦",30,137,44,Color.WHITE,false);t(c,"Player123",92,105,18,Color.WHITE,true);t(c,"⭐ Level "+(1+coins/500),92,128,11,Color.rgb(255,215,42),true);t(c,"🔥 "+sp.getInt("streak",1)+" day streak",92,149,10,Color.rgb(165,190,220),false);stat(c,"🏆 Best Score",""+best,200);stat(c,"🎯 Best Combo",""+bestCombo+"×",250);stat(c,"🎮 Games",""+games,300);btn(c,"⚙ SETTINGS",22,360,getWidth()-22,412,false);btn(c,"🛒 SHOP",22,424,getWidth()-22,476,false);nav(c,2);}
+    void settings(Canvas c){head(c,"Settings");t(c,"GAME",18,88,11,Color.rgb(20,217,255),true);toggle(c,"🔊","Sound Effects",sound,110);toggle(c,"📳","Vibration",vibration,170);btn(c,"🔒 Privacy Policy",18,255,getWidth()-18,305,false);btn(c,"↺ Reset Progress",18,320,getWidth()-18,370,false);btn(c,"‹ BACK",18,390,getWidth()-18,440,false);}
+    void toggle(Canvas c,String i,String n,boolean on,float y){box(c,18,y,getWidth()-18,y+48,Color.rgb(6,23,45));t(c,i,30,y+31,18,Color.WHITE,false);t(c,n,64,y+30,13,Color.WHITE,false);box(c,getWidth()-70,y+13,getWidth()-28,y+35,on?Color.rgb(20,190,160):Color.rgb(35,55,75));p.setColor(Color.WHITE);c.drawCircle(getWidth()-(on?39:59),y+24,8,p);}
+    void beep(){if(!sound||tone==null)return;try{tone.startTone(ToneGenerator.TONE_PROP_BEEP2,70);}catch(Exception e){}}
+    void buzz(int ms){if(!vibration||vib==null)return;try{if(Build.VERSION.SDK_INT>=26)vib.vibrate(VibrationEffect.createOneShot(ms,VibrationEffect.DEFAULT_AMPLITUDE));else vib.vibrate(ms);}catch(Exception e){}}
+    public boolean onTouchEvent(MotionEvent e){if(e.getAction()!=1)return true;float x=e.getX(),y=e.getY();
+      if(page.equals("home")){if(y>270&&y<360){page="modes";}else if(y>385&&y<465){mode=ids[Calendar.getInstance().get(Calendar.DAY_OF_YEAR)%4];page="game";start();}else if(y>getHeight()-90){if(x<getWidth()/4)page="modes";else if(x<getWidth()/2)page="shop";else if(x<3*getWidth()/4)page="profile";}}
+      else if(page.equals("modes")){if(y<65)page="home";else if(y>130&&y<500){int i=(int)((y-140)/88);if(i>=0&&i<4){mode=ids[i];page="game";start();}}else if(y>getHeight()-90){if(x<getWidth()/2)page="shop";else if(x<3*getWidth()/4)page="profile";}}
+      else if(page.equals("game")){if(paused){if(y>getHeight()/2){paused=false;end=System.currentTimeMillis()+seconds*1000L;spawn();}}else if(y<65&&x<65){page="home";target=false;}else if(y<65&&x>getWidth()-100){paused=true;}else if(target&&Math.hypot(x-tx,y-ty)<52)tap();}
+      else if(page.equals("result")){if(y>460&&y<535)start();else if(y>535&&y<600)page="home";}
+      else if(page.equals("shop")){if(y<65)page="home";else if(y>115&&y<520)buy(Math.max(0,Math.min(4,(int)((y-125)/76))));else if(y>getHeight()-90){if(x<getWidth()/4)page="modes";else if(x<3*getWidth()/4)page="profile";}}
+      else if(page.equals("profile")){if(y<65)page="home";else if(y>350&&y<420)page="settings";else if(y>420&&y<490)page="shop";else if(y>getHeight()-90){if(x<getWidth()/4)page="modes";else if(x<getWidth()/2)page="shop";}}
+      else if(page.equals("settings")){if(y<65)page="profile";else if(y>100&&y<160)sound=!sound;else if(y>165&&y<225)vibration=!vibration;else if(y>315&&y<385){sp.edit().clear().apply();coins=250;best=games=bestCombo=0;}else if(y>385)page="profile";save();}
+      invalidate();return true;
+    }
+    boolean back(){if(page.equals("home"))return false;if(page.equals("game")){page="home";target=false;}else if(page.equals("profile"))page="home";else if(page.equals("settings"))page="profile";else page="home";invalidate();return true;}
+  }
 }
