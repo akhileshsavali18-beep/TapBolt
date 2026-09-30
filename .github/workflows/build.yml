@@ -42,7 +42,12 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Copy APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk TapBolt-debug.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk TapBolt.apk
+
+      - name: Remove old APK asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete-asset latest TapBolt-debug.apk --yes || true
 
       - name: Publish latest release
         uses: softprops/action-gh-release@v2
@@ -51,4 +56,4 @@ jobs:
           name: TapBolt Latest Build
           prerelease: true
           make_latest: false
-          files: TapBolt-debug.apk
+          files: TapBolt.apk
